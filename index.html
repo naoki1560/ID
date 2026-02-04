@@ -3,22 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ID-GRID SUPERFLUID</title>
+    <title>ID-GRID VACUUM DECAY</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: monospace; }
         .controls { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: center; gap: 10px; z-index: 100; }
         button { padding: 15px 25px; font-size: 18px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; }
         #igniteBtn { background: #00f; color: #fff; box-shadow: 0 0 15px #00f; }
-        #stopBtn { background: #f00; color: #fff; box-shadow: 0 0 15px #f00; }
-        #info { position: absolute; top: 10px; left: 10px; color: #0ff; pointer-events: none; line-height: 1.5; }
+        #stopBtn { background: #444; color: #fff; box-shadow: 0 0 15px #f00; }
+        #info { position: absolute; top: 10px; left: 10px; color: #0ff; pointer-events: none; }
     </style>
 </head>
 <body>
-    <div id="info">ID-GRID: SUPERFLUID MODE<br>FRICTION: 0.0001%<br>STATUS: <span id="statText">STANDBY</span></div>
+    <div id="info">ID-GRID: DYNAMIC MODE<br>STATUS: <span id="statText">STANDBY</span></div>
     
     <div class="controls">
-        <button id="igniteBtn">点火 (START)</button>
-        <button id="stopBtn">停止 (VACUUM DECAY)</button>
+        <button id="igniteBtn">中心点火 (IGNITE)</button>
+        <button id="stopBtn">中心のみ停止 (DECAY)</button>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -38,10 +38,13 @@
             const group = new THREE.Group();
             group.position.set(x, y, z);
             const geom = new THREE.TetrahedronGeometry(1.2);
-            const mat = new THREE.MeshBasicMaterial({ color: 0x222222, wireframe: true });
-            group.add(new THREE.Mesh(geom, mat));
+            // 状態によって色を変えるためのマテリアル
+            const mat = new THREE.MeshBasicMaterial({ color: 0x444444, wireframe: true });
+            const mesh = new THREE.Mesh(geom, mat);
+            group.add(mesh);
 
             const poles = [[1,1,1], [-1,-1,1], [-1,1,-1], [1,-1,-1]];
+            const dots = [];
             poles.forEach((p, i) => {
                 const dot = new THREE.Mesh(
                     new THREE.SphereGeometry(0.3),
@@ -49,14 +52,15 @@
                 );
                 dot.position.set(p[0], p[1], p[2]);
                 group.add(dot);
+                dots.push(dot);
             });
 
-            const unit = { group, v: new THREE.Vector3(0, 0, 0) };
+            const unit = { group, mesh, dots, v: new THREE.Vector3(0, 0, 0), isLocked: false };
             scene.add(group);
             return unit;
         }
 
-        // 3x3x3のグリッド
+        // 3x3x3グリッド
         for(let x=-1; x<=1; x++) {
             for(let y=-1; y<=1; y++) {
                 for(let z=-1; z<=1; z++) {
@@ -65,47 +69,64 @@
             }
         }
 
-        // 点火ボタン：中心を回す
+        // 点火ボタン：中心を活性化
         document.getElementById('igniteBtn').addEventListener('click', () => {
             units.forEach(u => {
                 if(u.group.position.length() < 1) {
-                    u.v.set(Math.random()*5, 10, Math.random()*5);
-                    document.getElementById('statText').innerText = "RUNNING";
+                    u.isLocked = false;
+                    u.v.set(5, 15, 5); // 強烈なスピン
+                    document.getElementById('statText').innerText = "VITALIZED";
                     document.getElementById('statText').style.color = "#0f0";
                 }
             });
         });
 
-        // 停止ボタン：真空崩壊
+        // 真空崩壊ボタン：中心のみを強制ロック
         document.getElementById('stopBtn').addEventListener('click', () => {
             units.forEach(u => {
-                u.v.set(0, 0, 0);
+                if(u.group.position.length() < 1) {
+                    u.v.set(0, 0, 0);
+                    u.isLocked = true; // ここが「死」のアンカーになる
+                    document.getElementById('statText').innerText = "DECAY START";
+                    document.getElementById('statText').style.color = "#f00";
+                }
             });
-            document.getElementById('statText').innerText = "VACUUM DECAYED";
-            document.getElementById('statText').style.color = "#f00";
         });
 
         function animate() {
             requestAnimationFrame(animate);
             
-            // 相互干渉（超流動：エネルギー伝達効率アップ）
+            // 相互干渉
             for(let i=0; i<units.length; i++) {
                 for(let j=i+1; j<units.length; j++) {
-                    const d = units[i].group.position.distanceTo(units[j].group.position);
+                    const u1 = units[i];
+                    const u2 = units[j];
+                    const d = u1.group.position.distanceTo(u2.group.position);
                     if(d < 6) {
-                        const torque = units[i].v.clone().sub(units[j].v).multiplyScalar(0.02);
-                        units[j].v.add(torque);
-                        units[i].v.sub(torque);
+                        // トルク伝達（一方が止まっていると、もう一方も強力にブレーキがかかる）
+                        const torque = u1.v.clone().sub(u2.v).multiplyScalar(0.03);
+                        if(!u2.isLocked) u2.v.add(torque);
+                        if(!u1.isLocked) u1.v.sub(torque);
                     }
                 }
             }
 
             units.forEach(u => {
-                u.group.rotation.x += u.v.x * 0.1;
-                u.group.rotation.y += u.v.y * 0.1;
-                u.group.rotation.z += u.v.z * 0.1;
-                // 摩擦を 0.9999 に（ほぼ永遠に回る）
-                u.v.multiplyScalar(0.9999);
+                if(!u.isLocked) {
+                    u.group.rotation.x += u.v.x * 0.1;
+                    u.group.rotation.y += u.v.y * 0.1;
+                    u.group.rotation.z += u.v.z * 0.1;
+                    u.v.multiplyScalar(0.999); // ほぼ摩擦なし
+                }
+
+                // 回転速度に合わせて色を変化（止まると暗くなる）
+                const speed = u.v.length();
+                const intensity = Math.min(speed * 0.1, 1);
+                u.mesh.material.color.setRGB(intensity * 0.4, intensity * 0.8, intensity * 0.8);
+                u.dots.forEach(dot => {
+                    dot.material.opacity = 0.3 + intensity * 0.7;
+                    dot.material.transparent = true;
+                });
             });
 
             renderer.render(scene, camera);
