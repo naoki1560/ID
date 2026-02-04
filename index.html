@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ID-Grid Ignition Simulator</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; color: #fff; font-family: sans-serif; }
+        canvas { display: block; }
+        #ui { position: absolute; top: 10px; left: 10px; pointer-events: none; }
+        .label { font-size: 12px; margin-bottom: 5px; color: #0ff; }
+        #msg { position: absolute; bottom: 20px; width: 100%; text-align: center; color: #555; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div class="label">ID-GRID SIMULATOR v1.0</div>
+        <div class="label">状態: <span id="status">待機中 (0 Hz)</span></div>
+    </div>
+    <div id="msg">正四面体をタップして回転（点火）を開始してください</div>
+
+    <script type="importmap">
+        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        // --- 設定 ---
+        const GRID_SIZE = 4; // 4x4x4 = 64個
+        const SPACING = 4;
+        const units = [];
+        
+        // シーン設定
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        camera.position.set(10, 10, 15);
+        camera.lookAt(0, 0, 0);
+
+        // 正四面体の頂点定義 (2N, 2S)
+        const tetraVertices = [
+            new THREE.Vector3( 1,  1,  1), // N (赤)
+            new THREE.Vector3(-1, -1,  1), // N (赤)
+            new THREE.Vector3(-1,  1, -1), // S (青)
+            new THREE.Vector3( 1, -1, -1)  // S (青)
+        ];
+
+        // ユニットクラス
+        class TetraUnit {
+            constructor(pos) {
+                this.group = new THREE.Group();
+                this.group.position.copy(pos);
+                
+                // 骨組み
+                const geometry = new THREE.TetrahedronGeometry(1.5);
+                const material = new THREE.MeshBasicMaterial({ color: 0x333333, wireframe: true, transparent: true, opacity: 0.3 });
+                this.mesh = new THREE.Mesh(geometry, material);
+                this.group.add(this.mesh);
+
+                // 磁極 (頂点) の可視化
+                this.poles = [];
+                tetraVertices.forEach((v, i) => {
+                    const dot = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.3),
+                        new THREE.MeshBasicMaterial({ color: i < 2 ? 0xff0000 : 0x0000ff })
+                    );
+                    dot.position.copy(v);
+                    this.group.add(dot);
+                    this.poles.push({ pos: v.clone(), type: i < 2 ? 1 : -1 }); // 1=N, -1=S
+                });
+
+                this.angularVelocity = new THREE.Vector3(0, 0, 0);
+                this.damping = 0.98; // 情報的摩擦
+                scene.add(this.group);
+            }
+
+            update(dt) {
+                // 回転の適用
+                this.group.rotation.x += this.angularVelocity.x * dt;
+                this.group.rotation.y += this.angularVelocity.y * dt;
+                this.group.rotation.z += this.angularVelocity.z * dt;
+
+                // 摩擦による減速
+                this.angularVelocity.multiplyScalar(this.damping);
+            }
+
+            ignite() {
+                this.angularVelocity.set(Math.random() * 10, 15, Math.random() * 10);
+                document.getElementById('status').innerText = "点火中 (496 Hz Sync)";
+            }
+        }
+
+        // グリッド配置
+        for (let x = 0; x < GRID_SIZE; x++) {
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let z = 0; z < GRID_SIZE; z++) {
+                    const pos = new THREE.Vector3(
+                        (x - (GRID_SIZE-1)/2) * SPACING,
+                        (y - (GRID_SIZE-1)/2) * SPACING,
+                        (z - (GRID_SIZE-1)/2) * SPACING
+                    );
+                    units.push(new TetraUnit(pos));
+                }
+            }
+        }
+
+        // --- 物理干渉ロジック (簡易版) ---
+        function applyInteractions() {
+            for (let i = 0; i < units.length; i++) {
+                for (let j = i + 1; j < units.length; j++) {
+                    const u1 = units[i];
+                    const u2 = units[j];
+                    const dist = u1.group.position.distanceTo(u2.group.position);
+
+                    // 近接ユニット間のみ磁気トルクを伝達
+                    if (dist < SPACING * 1.5) {
+                        const strength = (u1.angularVelocity.length() + u2.angularVelocity.length()) * 0.01;
+                        // 磁気的な引きずり（同期）
+                        const diff = u1.angularVelocity.clone().sub(u2.angularVelocity).multiplyScalar(0.05);
+                        u2.angularVelocity.add(diff);
+                        u1.angularVelocity.sub(diff);
+                    }
+                }
+            }
+        }
+
+        // タップ/クリック判定
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        window.addEventListener('mousedown', (event) => {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+            if (intersects.length > 0) {
+                // 親のGroupを見つけてイグニッション
+                let obj = intersects[0].object;
+                while(obj.parent && !obj.ignite) obj = obj.parent;
+                if(obj.ignite) obj.ignite();
+            }
+        });
+
+        // アニメーションループ
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = 0.016;
+
+            applyInteractions();
+            units.forEach(u => u.update(dt));
+
+            renderer.render(scene, camera);
+        }
+
+        // リサイズ対応
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
