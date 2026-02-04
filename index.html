@@ -1,168 +1,120 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ID-Grid Ignition Simulator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ID-GRID iPad v1.1</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; color: #fff; font-family: sans-serif; }
-        canvas { display: block; }
-        #ui { position: absolute; top: 10px; left: 10px; pointer-events: none; }
-        .label { font-size: 12px; margin-bottom: 5px; color: #0ff; }
-        #msg { position: absolute; bottom: 20px; width: 100%; text-align: center; color: #555; font-size: 14px; }
+        body { margin: 0; overflow: hidden; background: #000; touch-action: none; }
+        #info { position: absolute; top: 10px; left: 10px; color: #0ff; font-family: monospace; pointer-events: none; }
     </style>
 </head>
 <body>
-    <div id="ui">
-        <div class="label">ID-GRID SIMULATOR v1.0</div>
-        <div class="label">状態: <span id="status">待機中 (0 Hz)</span></div>
-    </div>
-    <div id="msg">正四面体をタップして回転（点火）を開始してください</div>
+    <div id="info">ID-GRID: READY (TAP TO IGNITE)</div>
 
-    <script type="importmap">
-        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
-    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
 
-    <script type="module">
-        import * as THREE from 'three';
-
-        // --- 設定 ---
-        const GRID_SIZE = 4; // 4x4x4 = 64個
-        const SPACING = 4;
+    <script>
+        // 設定
+        const GRID_SIZE = 3; // iPadの負荷を考慮して3x3x3
+        const SPACING = 5;
         const units = [];
-        
-        // シーン設定
+
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
 
-        camera.position.set(10, 10, 15);
+        camera.position.set(12, 12, 12);
         camera.lookAt(0, 0, 0);
 
-        // 正四面体の頂点定義 (2N, 2S)
-        const tetraVertices = [
-            new THREE.Vector3( 1,  1,  1), // N (赤)
-            new THREE.Vector3(-1, -1,  1), // N (赤)
-            new THREE.Vector3(-1,  1, -1), // S (青)
-            new THREE.Vector3( 1, -1, -1)  // S (青)
-        ];
-
-        // ユニットクラス
+        // 正四面体ユニット
         class TetraUnit {
             constructor(pos) {
                 this.group = new THREE.Group();
                 this.group.position.copy(pos);
                 
-                // 骨組み
-                const geometry = new THREE.TetrahedronGeometry(1.5);
-                const material = new THREE.MeshBasicMaterial({ color: 0x333333, wireframe: true, transparent: true, opacity: 0.3 });
-                this.mesh = new THREE.Mesh(geometry, material);
+                const geom = new THREE.TetrahedronGeometry(1.2);
+                const mat = new THREE.MeshBasicMaterial({ color: 0x444444, wireframe: true });
+                this.mesh = new THREE.Mesh(geom, mat);
                 this.group.add(this.mesh);
 
-                // 磁極 (頂点) の可視化
-                this.poles = [];
-                tetraVertices.forEach((v, i) => {
+                // 磁極 (2N:赤, 2S:青)
+                const pPos = [ [1,1,1], [-1,-1,1], [-1,1,-1], [1,-1,-1] ];
+                pPos.forEach((p, i) => {
                     const dot = new THREE.Mesh(
                         new THREE.SphereGeometry(0.3),
                         new THREE.MeshBasicMaterial({ color: i < 2 ? 0xff0000 : 0x0000ff })
                     );
-                    dot.position.copy(v);
+                    dot.position.set(p[0], p[1], p[2]);
                     this.group.add(dot);
-                    this.poles.push({ pos: v.clone(), type: i < 2 ? 1 : -1 }); // 1=N, -1=S
                 });
 
-                this.angularVelocity = new THREE.Vector3(0, 0, 0);
-                this.damping = 0.98; // 情報的摩擦
+                this.v = new THREE.Vector3(0, 0, 0);
                 scene.add(this.group);
             }
-
-            update(dt) {
-                // 回転の適用
-                this.group.rotation.x += this.angularVelocity.x * dt;
-                this.group.rotation.y += this.angularVelocity.y * dt;
-                this.group.rotation.z += this.angularVelocity.z * dt;
-
-                // 摩擦による減速
-                this.angularVelocity.multiplyScalar(this.damping);
-            }
-
-            ignite() {
-                this.angularVelocity.set(Math.random() * 10, 15, Math.random() * 10);
-                document.getElementById('status').innerText = "点火中 (496 Hz Sync)";
+            update() {
+                this.group.rotation.x += this.v.x;
+                this.group.rotation.y += this.v.y;
+                this.group.rotation.z += this.v.z;
+                this.v.multiplyScalar(0.98); // 摩擦
             }
         }
 
-        // グリッド配置
-        for (let x = 0; x < GRID_SIZE; x++) {
-            for (let y = 0; y < GRID_SIZE; y++) {
-                for (let z = 0; z < GRID_SIZE; z++) {
-                    const pos = new THREE.Vector3(
-                        (x - (GRID_SIZE-1)/2) * SPACING,
-                        (y - (GRID_SIZE-1)/2) * SPACING,
-                        (z - (GRID_SIZE-1)/2) * SPACING
-                    );
-                    units.push(new TetraUnit(pos));
+        // グリッド作成
+        for(let x=0; x<GRID_SIZE; x++) {
+            for(let y=0; y<GRID_SIZE; y++) {
+                for(let z=0; z<GRID_SIZE; z++) {
+                    units.push(new TetraUnit(new THREE.Vector3(
+                        (x-1)*SPACING, (y-1)*SPACING, (z-1)*SPACING
+                    )));
                 }
             }
         }
 
-        // --- 物理干渉ロジック (簡易版) ---
-        function applyInteractions() {
-            for (let i = 0; i < units.length; i++) {
-                for (let j = i + 1; j < units.length; j++) {
-                    const u1 = units[i];
-                    const u2 = units[j];
-                    const dist = u1.group.position.distanceTo(u2.group.position);
-
-                    // 近接ユニット間のみ磁気トルクを伝達
-                    if (dist < SPACING * 1.5) {
-                        const strength = (u1.angularVelocity.length() + u2.angularVelocity.length()) * 0.01;
-                        // 磁気的な引きずり（同期）
-                        const diff = u1.angularVelocity.clone().sub(u2.angularVelocity).multiplyScalar(0.05);
-                        u2.angularVelocity.add(diff);
-                        u1.angularVelocity.sub(diff);
+        // 磁気干渉（点火の伝播）
+        function step() {
+            for(let i=0; i<units.length; i++) {
+                for(let j=i+1; j<units.length; j++) {
+                    const d = units[i].group.position.distanceTo(units[j].group.position);
+                    if(d < SPACING * 1.2) {
+                        // 磁気トルク伝達（隣の回転を引きずり込む）
+                        const force = units[i].v.clone().sub(units[j].v).multiplyScalar(0.02);
+                        units[j].v.add(force);
+                        units[i].v.sub(force);
                     }
                 }
             }
         }
 
-        // タップ/クリック判定
+        // iPad用タッチイベント
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
 
-        window.addEventListener('mousedown', (event) => {
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        function handleTouch(e) {
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            mouse.x = (clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
             raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(scene.children, true);
-            if (intersects.length > 0) {
-                // 親のGroupを見つけてイグニッション
-                let obj = intersects[0].object;
-                while(obj.parent && !obj.ignite) obj = obj.parent;
-                if(obj.ignite) obj.ignite();
+            const hits = raycaster.intersectObjects(scene.children, true);
+            if(hits.length > 0) {
+                let target = hits[0].object;
+                while(target.parent && !target.v) target = target.parent;
+                if(target.v) target.v.set(Math.random()*2, 5, Math.random()*2); // 点火！
             }
-        });
+        }
+        window.addEventListener('touchstart', handleTouch);
+        window.addEventListener('mousedown', handleTouch);
 
-        // アニメーションループ
         function animate() {
             requestAnimationFrame(animate);
-            const dt = 0.016;
-
-            applyInteractions();
-            units.forEach(u => u.update(dt));
-
+            step();
+            units.forEach(u => u.update());
             renderer.render(scene, camera);
         }
-
-        // リサイズ対応
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
         animate();
     </script>
 </body>
