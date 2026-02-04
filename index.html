@@ -3,22 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ID-GRID iPad FINAL</title>
+    <title>ID-GRID SUPERFLUID</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; font-family: monospace; }
-        /* 巨大ボタンのスタイル */
-        #igniteBtn {
-            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
-            padding: 20px 40px; font-size: 24px; font-weight: bold;
-            background: #f00; color: #fff; border: none; border-radius: 10px;
-            box-shadow: 0 0 20px rgba(255,0,0,0.5); cursor: pointer; z-index: 100;
-        }
-        #info { position: absolute; top: 10px; left: 10px; color: #0ff; pointer-events: none; }
+        .controls { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: center; gap: 10px; z-index: 100; }
+        button { padding: 15px 25px; font-size: 18px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; }
+        #igniteBtn { background: #00f; color: #fff; box-shadow: 0 0 15px #00f; }
+        #stopBtn { background: #f00; color: #fff; box-shadow: 0 0 15px #f00; }
+        #info { position: absolute; top: 10px; left: 10px; color: #0ff; pointer-events: none; line-height: 1.5; }
     </style>
 </head>
 <body>
-    <div id="info">ID-GRID STATUS: STANDBY (0 Hz)</div>
-    <button id="igniteBtn">点火 (IGNITION)</button>
+    <div id="info">ID-GRID: SUPERFLUID MODE<br>FRICTION: 0.0001%<br>STATUS: <span id="statText">STANDBY</span></div>
+    
+    <div class="controls">
+        <button id="igniteBtn">点火 (START)</button>
+        <button id="stopBtn">停止 (VACUUM DECAY)</button>
+    </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
@@ -30,16 +31,14 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        camera.position.set(10, 10, 10);
+        camera.position.set(12, 12, 12);
         camera.lookAt(0, 0, 0);
 
-        // ユニット作成 (2N-2Sモデル)
         function createUnit(x, y, z) {
             const group = new THREE.Group();
             group.position.set(x, y, z);
-            
             const geom = new THREE.TetrahedronGeometry(1.2);
-            const mat = new THREE.MeshBasicMaterial({ color: 0x444444, wireframe: true });
+            const mat = new THREE.MeshBasicMaterial({ color: 0x222222, wireframe: true });
             group.add(new THREE.Mesh(geom, mat));
 
             const poles = [[1,1,1], [-1,-1,1], [-1,1,-1], [1,-1,-1]];
@@ -66,28 +65,35 @@
             }
         }
 
-        // ボタン操作: 中心のユニットに強烈な回転を付与
+        // 点火ボタン：中心を回す
         document.getElementById('igniteBtn').addEventListener('click', () => {
-            // 中心(0,0,0)に最も近いユニットを探す
             units.forEach(u => {
                 if(u.group.position.length() < 1) {
-                    u.v.set(0, 15, 0); // 496Hz相当の強烈なスピン
-                    document.getElementById('info').innerText = "STATUS: IGNITED (496 Hz Sync)";
-                    document.getElementById('igniteBtn').style.background = "#0f0";
-                    document.getElementById('igniteBtn').innerText = "再点火";
+                    u.v.set(Math.random()*5, 10, Math.random()*5);
+                    document.getElementById('statText').innerText = "RUNNING";
+                    document.getElementById('statText').style.color = "#0f0";
                 }
             });
+        });
+
+        // 停止ボタン：真空崩壊
+        document.getElementById('stopBtn').addEventListener('click', () => {
+            units.forEach(u => {
+                u.v.set(0, 0, 0);
+            });
+            document.getElementById('statText').innerText = "VACUUM DECAYED";
+            document.getElementById('statText').style.color = "#f00";
         });
 
         function animate() {
             requestAnimationFrame(animate);
             
-            // 相互干渉（磁気トルク伝達）
+            // 相互干渉（超流動：エネルギー伝達効率アップ）
             for(let i=0; i<units.length; i++) {
                 for(let j=i+1; j<units.length; j++) {
                     const d = units[i].group.position.distanceTo(units[j].group.position);
                     if(d < 6) {
-                        const torque = units[i].v.clone().sub(units[j].v).multiplyScalar(0.015);
+                        const torque = units[i].v.clone().sub(units[j].v).multiplyScalar(0.02);
                         units[j].v.add(torque);
                         units[i].v.sub(torque);
                     }
@@ -98,7 +104,8 @@
                 u.group.rotation.x += u.v.x * 0.1;
                 u.group.rotation.y += u.v.y * 0.1;
                 u.group.rotation.z += u.v.z * 0.1;
-                u.v.multiplyScalar(0.99); // 情報的摩擦
+                // 摩擦を 0.9999 に（ほぼ永遠に回る）
+                u.v.multiplyScalar(0.9999);
             });
 
             renderer.render(scene, camera);
