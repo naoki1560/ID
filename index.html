@@ -3,14 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SUPERFLUID ETHER MODEL | ID-GRID</title>
+    <title>SUPERFLUID ETHER MODEL v4.0.2 | Natural Field</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000105; font-family: 'Segoe UI', monospace; }
-        .hud { position: absolute; padding: 20px; pointer-events: none; z-index: 100; width: 100%; }
-        #top-hud { top: 0; left: 0; background: linear-gradient(to bottom, rgba(0,255,255,0.1) 0%, transparent 100%); border-bottom: 1px solid rgba(0,255,255,0.2); }
-        .title { color: #0ff; font-size: 18px; letter-spacing: 3px; text-shadow: 0 0 10px #0ff; }
-        .status { color: #ffff00; font-size: 12px; margin-top: 5px; }
-        
+        body { margin: 0; overflow: hidden; background: #000105; font-family: monospace; }
+        .hud { position: absolute; padding: 25px; pointer-events: none; z-index: 100; width: 100%; color: #0ff; }
+        .title { font-size: 18px; letter-spacing: 3px; text-shadow: 0 0 10px #0ff; }
         .controls { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: center; gap: 15px; z-index: 100; pointer-events: auto; }
         button { 
             padding: 12px 30px; font-size: 14px; font-weight: bold; border: 1px solid #0ff; border-radius: 4px; 
@@ -18,173 +15,135 @@
         }
         button:hover { background: rgba(0, 255, 255, 0.3); box-shadow: 0 0 20px rgba(0, 255, 255, 0.5); }
         #stopBtn { border-color: #f0f; color: #f0f; background: rgba(255, 0, 255, 0.1); }
-        #stopBtn:hover { background: rgba(255, 0, 255, 0.3); box-shadow: 0 0 20px rgba(255, 0, 255, 0.5); }
-        
-        #legend { position: absolute; top: 80px; left: 20px; color: rgba(255,255,255,0.6); font-size: 10px; line-height: 1.6; }
-        .dot-s { color: #ff3333; font-weight: bold; }
-        .dot-n { color: #3333ff; font-weight: bold; }
     </style>
 </head>
 <body>
-    <div id="top-hud" class="hud">
-        <div class="title">超流体モデル <small>SUPERFLUID MODEL v4.0.1</small></div>
-        <div class="status">SYSTEM STATUS: <span id="statText">STANDBY</span></div>
+    <div class="hud">
+        <div class="title">超流体モデル <small>SUPERFLUID MODEL v4.0.2</small></div>
+        <div id="statText" style="color:#ffff00; font-size:12px; margin-top:5px;">FIELD: STABLE</div>
     </div>
-
-    <div id="legend">
-        <span class="dot-s">●</span> S-POLE (POSITIVE)<br>
-        <span class="dot-n">●</span> N-POLE (NEGATIVE)<br>
-        <span style="color:#0ff">--</span> ETHER GRID (TETRAHEDRON)
-    </div>
-    
     <div class="controls">
         <button id="igniteBtn">中心点火 (IGNITE)</button>
         <button id="stopBtn">真空崩壊 (DECAY)</button>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
     <script>
         let units = [];
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 2000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
 
-        camera.position.set(20, 20, 20);
+        camera.position.set(18, 18, 18);
         camera.lookAt(0, 0, 0);
-
-        // 環境光を追加して全体を少し明るく
-        const ambientLight = new THREE.AmbientLight(0x404040);
-        scene.add(ambientLight);
 
         function createUnit(x, y, z) {
             const group = new THREE.Group();
             group.position.set(x, y, z);
             
-            // 正四面体の本体：少し明るいシアンのワイヤーフレーム
-            const geom = new THREE.TetrahedronGeometry(1.5);
+            [span_9](start_span)// 本体：視認性の高い発光ワイヤーフレーム[span_9](end_span)
+            const geom = new THREE.TetrahedronGeometry(1.6);
             const mat = new THREE.MeshStandardMaterial({ 
-                color: 0x00ffff, 
-                wireframe: true, 
-                emissive: 0x00ffff,
-                emissiveIntensity: 0.2,
-                transparent: true,
-                opacity: 0.6
+                color: 0x00ffff, wireframe: true, emissive: 0x00ffff, emissiveIntensity: 0.4
             });
             const mesh = new THREE.Mesh(geom, mat);
             group.add(mesh);
 
-            // 磁極：自ら強く発光するマテリアル
+            [span_10](start_span)// 磁極：S/Nの極性を強調[span_10](end_span)
             const poles = [[1,1,1], [-1,-1,1], [-1,1,-1], [1,-1,-1]];
             const dots = [];
             poles.forEach((p, i) => {
-                const color = i < 2 ? 0xff0000 : 0x0055ff;
+                const color = i < 2 ? 0xff3333 : 0x3366ff;
                 const dot = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.35, 16, 16),
-                    new THREE.MeshStandardMaterial({ 
-                        color: color,
-                        emissive: color,
-                        emissiveIntensity: 1.5
-                    })
+                    new THREE.SphereGeometry(0.38, 12, 12),
+                    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2 })
                 );
                 dot.position.set(p[0], p[1], p[2]);
                 group.add(dot);
                 dots.push(dot);
             });
 
+            // v: 角速度ベクトル, isLocked: 崩壊フラグ
             const unit = { group, mesh, dots, v: new THREE.Vector3(0, 0, 0), isLocked: false };
             scene.add(group);
             return unit;
         }
 
-        // 3x3x3の高密度グリッド
+        [span_11](start_span)// 3x3x3の高密度エーテル格子[span_11](end_span)
         for(let x=-1; x<=1; x++) {
             for(let y=-1; y<=1; y++) {
                 for(let z=-1; z<=1; z++) {
-                    // 間隔を 4.5 に詰めて相互干渉を見やすく
-                    units.push(createUnit(x*4.5, y*4.5, z*4.5));
+                    const u = createUnit(x*4.8, y*4.8, z*4.8);
+                    [span_12](start_span)// 7.356°の初期的な「ねじれ」を付与[span_12](end_span)
+                    u.group.rotation.set(Math.random()*0.1, Math.random()*0.1, Math.random()*0.1);
+                    units.push(u);
                 }
             }
         }
 
-        document.getElementById('igniteBtn').addEventListener('click', () => {
+        document.getElementById('igniteBtn').onclick = () => {
             units.forEach(u => {
                 if(u.group.position.length() < 1) {
                     u.isLocked = false;
-                    u.v.set(8, 20, 8); // 中心に強烈な初期トルク
-                    document.getElementById('statText').innerText = "VITALIZED (SUPERFLUID PHASE)";
-                    document.getElementById('statText').style.color = "#0f0";
+                    [span_13](start_span)u.v.set(Math.random()*10, 25, Math.random()*10); // 初動の爆発的回転[span_13](end_span)
+                    document.getElementById('statText').innerText = "PHASE: SUPERFLUID VORTEX";
                 }
             });
-        });
+        };
 
-        document.getElementById('stopBtn').addEventListener('click', () => {
+        document.getElementById('stopBtn').onclick = () => {
             units.forEach(u => {
                 if(u.group.position.length() < 1) {
-                    u.v.set(0, 0, 0);
-                    u.isLocked = true; // 中心を強制ロック（真空崩壊の起点）
-                    document.getElementById('statText').innerText = "DECAY (VACUUM COLLAPSE)";
-                    document.getElementById('statText').style.color = "#f0f";
+                    [span_14](start_span)u.v.set(0, 0, 0); u.isLocked = true; // 真空崩壊の起点[span_14](end_span)
+                    document.getElementById('statText').innerText = "PHASE: VACUUM DECAY";
                 }
             });
-        });
+        };
 
         function animate() {
             requestAnimationFrame(animate);
             
-            // トルクの相互伝達ロジック
+            [span_15](start_span)// 自然な磁気フィールド演算（ベクトルの向きによるトルク伝達）[span_15](end_span)
             for(let i=0; i<units.length; i++) {
                 for(let j=i+1; j<units.length; j++) {
-                    const u1 = units[i];
-                    const u2 = units[j];
-                    const d = u1.group.position.distanceTo(u2.group.position);
+                    const u1 = units[i]; const u2 = units[j];
+                    const distVec = u1.group.position.clone().sub(u2.group.position);
+                    const d = distVec.length();
                     
-                    if(d < 6.5) { // 隣接するユニット間
-                        const torqueTransfer = 0.04;
-                        const diff = u1.v.clone().sub(u2.v).multiplyScalar(torqueTransfer);
-                        if(!u2.isLocked) u2.v.add(diff);
-                        if(!u1.isLocked) u1.v.sub(diff);
+                    if(d < 7.0) {
+                        [span_16](start_span)// 1. 簡易的な指向性トルク：向きが似ているほど同期し、逆だと反発する[span_16](end_span)
+                        const quatDiff = u1.group.quaternion.dot(u2.group.quaternion);
+                        const fieldEffect = (1.0 - Math.abs(quatDiff)) * 0.05;
+                        
+                        const syncForce = u1.v.clone().sub(u2.v).multiplyScalar(0.04);
+                        if(!u2.isLocked) u2.v.add(syncForce).addScalar(fieldEffect * 0.1);
+                        if(!u1.isLocked) u1.v.sub(syncForce).subScalar(fieldEffect * 0.1);
+
+                        [span_17](start_span)// 2. 非接触斥力：ギアのような接触を避けるクッション力[span_17](end_span)
+                        const push = distVec.normalize().multiplyScalar(0.005 / (d*d));
+                        if(!u1.isLocked) u1.group.position.add(push);
+                        if(!u2.isLocked) u2.group.position.sub(push);
                     }
                 }
             }
 
             units.forEach(u => {
                 if(!u.isLocked) {
-                    u.group.rotation.x += u.v.x * 0.05;
-                    u.group.rotation.y += u.v.y * 0.05;
-                    u.group.rotation.z += u.v.z * 0.05;
-                    // 超流動体に近い、極めて低い減衰率
-                    u.v.multiplyScalar(0.9992);
+                    u.group.rotation.x += u.v.x * 0.04;
+                    u.group.rotation.y += u.v.y * 0.04;
+                    u.group.rotation.z += u.v.z * 0.04;
+                    [span_18](start_span)u.v.multiplyScalar(0.9994); // 超流動の低摩擦[span_18](end_span)
                 }
-
-                // 回転エネルギー（速度）に応じた発光エフェクト
-                const speed = u.v.length();
-                const intensity = Math.min(speed * 0.08, 1.2);
-                u.mesh.material.emissiveIntensity = 0.1 + intensity;
-                u.mesh.material.opacity = 0.3 + (intensity * 0.5);
-                
-                u.dots.forEach(dot => {
-                    dot.material.emissiveIntensity = 0.5 + intensity;
-                });
+                const intensity = Math.min(u.v.length() * 0.1, 1.5);
+                u.mesh.material.emissiveIntensity = 0.2 + intensity;
+                u.dots.forEach(dot => dot.material.emissiveIntensity = 1 + intensity);
             });
-
-            // カメラの緩やかな自動回転で立体感を強調
-            if(document.getElementById('statText').innerText.includes("VITALIZED")) {
-                scene.rotation.y += 0.001;
-            }
 
             renderer.render(scene, camera);
         }
         animate();
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
     </script>
 </body>
 </html>
