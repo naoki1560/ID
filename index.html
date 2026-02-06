@@ -1,24 +1,45 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ID-GRID VACUUM DECAY</title>
+    <title>SUPERFLUID ETHER MODEL | ID-GRID</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000; font-family: monospace; }
-        .controls { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: center; gap: 10px; z-index: 100; }
-        button { padding: 15px 25px; font-size: 18px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; }
-        #igniteBtn { background: #00f; color: #fff; box-shadow: 0 0 15px #00f; }
-        #stopBtn { background: #444; color: #fff; box-shadow: 0 0 15px #f00; }
-        #info { position: absolute; top: 10px; left: 10px; color: #0ff; pointer-events: none; }
+        body { margin: 0; overflow: hidden; background: #000105; font-family: 'Segoe UI', monospace; }
+        .hud { position: absolute; padding: 20px; pointer-events: none; z-index: 100; width: 100%; }
+        #top-hud { top: 0; left: 0; background: linear-gradient(to bottom, rgba(0,255,255,0.1) 0%, transparent 100%); border-bottom: 1px solid rgba(0,255,255,0.2); }
+        .title { color: #0ff; font-size: 18px; letter-spacing: 3px; text-shadow: 0 0 10px #0ff; }
+        .status { color: #ffff00; font-size: 12px; margin-top: 5px; }
+        
+        .controls { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: center; gap: 15px; z-index: 100; pointer-events: auto; }
+        button { 
+            padding: 12px 30px; font-size: 14px; font-weight: bold; border: 1px solid #0ff; border-radius: 4px; 
+            cursor: pointer; transition: 0.3s; background: rgba(0, 255, 255, 0.1); color: #0ff;
+        }
+        button:hover { background: rgba(0, 255, 255, 0.3); box-shadow: 0 0 20px rgba(0, 255, 255, 0.5); }
+        #stopBtn { border-color: #f0f; color: #f0f; background: rgba(255, 0, 255, 0.1); }
+        #stopBtn:hover { background: rgba(255, 0, 255, 0.3); box-shadow: 0 0 20px rgba(255, 0, 255, 0.5); }
+        
+        #legend { position: absolute; top: 80px; left: 20px; color: rgba(255,255,255,0.6); font-size: 10px; line-height: 1.6; }
+        .dot-s { color: #ff3333; font-weight: bold; }
+        .dot-n { color: #3333ff; font-weight: bold; }
     </style>
 </head>
 <body>
-    <div id="info">ID-GRID: DYNAMIC MODE<br>STATUS: <span id="statText">STANDBY</span></div>
+    <div id="top-hud" class="hud">
+        <div class="title">超流体モデル <small>SUPERFLUID MODEL v4.0.1</small></div>
+        <div class="status">SYSTEM STATUS: <span id="statText">STANDBY</span></div>
+    </div>
+
+    <div id="legend">
+        <span class="dot-s">●</span> S-POLE (POSITIVE)<br>
+        <span class="dot-n">●</span> N-POLE (NEGATIVE)<br>
+        <span style="color:#0ff">--</span> ETHER GRID (TETRAHEDRON)
+    </div>
     
     <div class="controls">
         <button id="igniteBtn">中心点火 (IGNITE)</button>
-        <button id="stopBtn">中心のみ停止 (DECAY)</button>
+        <button id="stopBtn">真空崩壊 (DECAY)</button>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -26,29 +47,48 @@
     <script>
         let units = [];
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 2000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
 
-        camera.position.set(12, 12, 12);
+        camera.position.set(20, 20, 20);
         camera.lookAt(0, 0, 0);
+
+        // 環境光を追加して全体を少し明るく
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
 
         function createUnit(x, y, z) {
             const group = new THREE.Group();
             group.position.set(x, y, z);
-            const geom = new THREE.TetrahedronGeometry(1.2);
-            // 状態によって色を変えるためのマテリアル
-            const mat = new THREE.MeshBasicMaterial({ color: 0x444444, wireframe: true });
+            
+            // 正四面体の本体：少し明るいシアンのワイヤーフレーム
+            const geom = new THREE.TetrahedronGeometry(1.5);
+            const mat = new THREE.MeshStandardMaterial({ 
+                color: 0x00ffff, 
+                wireframe: true, 
+                emissive: 0x00ffff,
+                emissiveIntensity: 0.2,
+                transparent: true,
+                opacity: 0.6
+            });
             const mesh = new THREE.Mesh(geom, mat);
             group.add(mesh);
 
+            // 磁極：自ら強く発光するマテリアル
             const poles = [[1,1,1], [-1,-1,1], [-1,1,-1], [1,-1,-1]];
             const dots = [];
             poles.forEach((p, i) => {
+                const color = i < 2 ? 0xff0000 : 0x0055ff;
                 const dot = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.3),
-                    new THREE.MeshBasicMaterial({ color: i < 2 ? 0xff0000 : 0x0000ff })
+                    new THREE.SphereGeometry(0.35, 16, 16),
+                    new THREE.MeshStandardMaterial({ 
+                        color: color,
+                        emissive: color,
+                        emissiveIntensity: 1.5
+                    })
                 );
                 dot.position.set(p[0], p[1], p[2]);
                 group.add(dot);
@@ -60,35 +100,34 @@
             return unit;
         }
 
-        // 3x3x3グリッド
+        // 3x3x3の高密度グリッド
         for(let x=-1; x<=1; x++) {
             for(let y=-1; y<=1; y++) {
                 for(let z=-1; z<=1; z++) {
-                    units.push(createUnit(x*5, y*5, z*5));
+                    // 間隔を 4.5 に詰めて相互干渉を見やすく
+                    units.push(createUnit(x*4.5, y*4.5, z*4.5));
                 }
             }
         }
 
-        // 点火ボタン：中心を活性化
         document.getElementById('igniteBtn').addEventListener('click', () => {
             units.forEach(u => {
                 if(u.group.position.length() < 1) {
                     u.isLocked = false;
-                    u.v.set(5, 15, 5); // 強烈なスピン
-                    document.getElementById('statText').innerText = "VITALIZED";
+                    u.v.set(8, 20, 8); // 中心に強烈な初期トルク
+                    document.getElementById('statText').innerText = "VITALIZED (SUPERFLUID PHASE)";
                     document.getElementById('statText').style.color = "#0f0";
                 }
             });
         });
 
-        // 真空崩壊ボタン：中心のみを強制ロック
         document.getElementById('stopBtn').addEventListener('click', () => {
             units.forEach(u => {
                 if(u.group.position.length() < 1) {
                     u.v.set(0, 0, 0);
-                    u.isLocked = true; // ここが「死」のアンカーになる
-                    document.getElementById('statText').innerText = "DECAY START";
-                    document.getElementById('statText').style.color = "#f00";
+                    u.isLocked = true; // 中心を強制ロック（真空崩壊の起点）
+                    document.getElementById('statText').innerText = "DECAY (VACUUM COLLAPSE)";
+                    document.getElementById('statText').style.color = "#f0f";
                 }
             });
         });
@@ -96,42 +135,56 @@
         function animate() {
             requestAnimationFrame(animate);
             
-            // 相互干渉
+            // トルクの相互伝達ロジック
             for(let i=0; i<units.length; i++) {
                 for(let j=i+1; j<units.length; j++) {
                     const u1 = units[i];
                     const u2 = units[j];
                     const d = u1.group.position.distanceTo(u2.group.position);
-                    if(d < 6) {
-                        // トルク伝達（一方が止まっていると、もう一方も強力にブレーキがかかる）
-                        const torque = u1.v.clone().sub(u2.v).multiplyScalar(0.03);
-                        if(!u2.isLocked) u2.v.add(torque);
-                        if(!u1.isLocked) u1.v.sub(torque);
+                    
+                    if(d < 6.5) { // 隣接するユニット間
+                        const torqueTransfer = 0.04;
+                        const diff = u1.v.clone().sub(u2.v).multiplyScalar(torqueTransfer);
+                        if(!u2.isLocked) u2.v.add(diff);
+                        if(!u1.isLocked) u1.v.sub(diff);
                     }
                 }
             }
 
             units.forEach(u => {
                 if(!u.isLocked) {
-                    u.group.rotation.x += u.v.x * 0.1;
-                    u.group.rotation.y += u.v.y * 0.1;
-                    u.group.rotation.z += u.v.z * 0.1;
-                    u.v.multiplyScalar(0.999); // ほぼ摩擦なし
+                    u.group.rotation.x += u.v.x * 0.05;
+                    u.group.rotation.y += u.v.y * 0.05;
+                    u.group.rotation.z += u.v.z * 0.05;
+                    // 超流動体に近い、極めて低い減衰率
+                    u.v.multiplyScalar(0.9992);
                 }
 
-                // 回転速度に合わせて色を変化（止まると暗くなる）
+                // 回転エネルギー（速度）に応じた発光エフェクト
                 const speed = u.v.length();
-                const intensity = Math.min(speed * 0.1, 1);
-                u.mesh.material.color.setRGB(intensity * 0.4, intensity * 0.8, intensity * 0.8);
+                const intensity = Math.min(speed * 0.08, 1.2);
+                u.mesh.material.emissiveIntensity = 0.1 + intensity;
+                u.mesh.material.opacity = 0.3 + (intensity * 0.5);
+                
                 u.dots.forEach(dot => {
-                    dot.material.opacity = 0.3 + intensity * 0.7;
-                    dot.material.transparent = true;
+                    dot.material.emissiveIntensity = 0.5 + intensity;
                 });
             });
+
+            // カメラの緩やかな自動回転で立体感を強調
+            if(document.getElementById('statText').innerText.includes("VITALIZED")) {
+                scene.rotation.y += 0.001;
+            }
 
             renderer.render(scene, camera);
         }
         animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
