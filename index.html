@@ -3,68 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SUPERFLUID MODEL v4.0.3 | Unified Field</title>
+    <title>SUPERFLUID MODEL v4.0.4 | Singularity</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #000105; font-family: 'Segoe UI', monospace; }
+        body { margin: 0; overflow: hidden; background: #000105; font-family: 'Segoe UI', sans-serif; }
         .hud { position: absolute; padding: 25px; pointer-events: none; z-index: 100; width: 100%; color: #0ff; }
-        .title { font-size: 18px; letter-spacing: 3px; text-shadow: 0 0 10px #0ff; font-weight: 300; }
-        .controls { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: center; gap: 15px; z-index: 100; pointer-events: auto; }
+        .title { font-size: 18px; letter-spacing: 4px; text-shadow: 0 0 15px #0ff; font-weight: 300; text-transform: uppercase; }
+        .controls { position: absolute; bottom: 40px; width: 100%; display: flex; justify-content: center; gap: 20px; z-index: 100; pointer-events: auto; }
         button { 
-            padding: 12px 30px; font-size: 14px; font-weight: bold; border: 1px solid #0ff; border-radius: 4px; 
-            cursor: pointer; transition: 0.3s; background: rgba(0, 255, 255, 0.1); color: #0ff;
+            padding: 15px 40px; font-size: 15px; font-weight: bold; border: 1px solid #0ff; border-radius: 4px; 
+            cursor: pointer; transition: 0.4s; background: rgba(0, 255, 255, 0.05); color: #0ff; letter-spacing: 2px;
         }
-        button:hover { background: rgba(0, 255, 255, 0.3); box-shadow: 0 0 20px rgba(0, 255, 255, 0.5); }
-        #stopBtn { border-color: #f0f; color: #f0f; background: rgba(255, 0, 255, 0.1); }
-        #legend { position: absolute; top: 80px; left: 25px; color: rgba(0,255,255,0.7); font-size: 10px; line-height: 1.8; }
+        button:hover { background: rgba(0, 255, 255, 0.2); box-shadow: 0 0 30px rgba(0, 255, 255, 0.4); transform: scale(1.05); }
+        #stopBtn { border-color: #ff0055; color: #ff0055; background: rgba(255, 0, 85, 0.05); }
+        #stopBtn:hover { background: rgba(255, 0, 85, 0.2); box-shadow: 0 0 30px rgba(255, 0, 85, 0.4); }
+        #legend { position: absolute; top: 90px; left: 25px; color: rgba(0,255,255,0.6); font-size: 11px; line-height: 2; border-left: 2px solid #0ff; padding-left: 15px; }
     </style>
 </head>
 <body>
     <div class="hud">
-        <div class="title">超流体モデル <small>SUPERFLUID MODEL v4.0.3</small></div>
-        <div id="statText" style="color:#ffff00; font-size:12px; margin-top:5px;">FIELD: READY</div>
+        <div class="title">SUPERFLUID MODEL <small>v4.0.4 "Singularity"</small></div>
+        <div id="statText" style="color:#ffff00; font-size:12px; margin-top:8px; font-family:monospace;">STASIS MODE</div>
     </div>
     <div id="legend">
-        <span style="color:#ff3333">●</span> S-POLE (POSITIVE)<br>
-        <span style="color:#3366ff">●</span> N-POLE (NEGATIVE)<br>
-        <span style="color:#00ffff">--</span> ETHER TETRAHEDRON
+        <span style="color:#ffffff; text-shadow: 0 0 10px #fff;">● Ω-SINGULARITY</span><br>
+        <span style="color:#ff3333">● S-POLE</span> / <span style="color:#3366ff">● N-POLE</span><br>
+        <span style="color:#00ffff">-- ETHER GRID</span>
     </div>
     <div class="controls">
-        <button id="igniteBtn">中心点火 (IGNITE)</button>
-        <button id="stopBtn">真空崩壊 (DECAY)</button>
+        <button id="igniteBtn">BIG BANG</button>
+        <button id="stopBtn">STATIC LOCK</button>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         let units = [];
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 2000);
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 2000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
 
-        camera.position.set(20, 20, 20);
+        camera.position.set(22, 22, 22);
         camera.lookAt(0, 0, 0);
 
         function createUnit(x, y, z) {
             const group = new THREE.Group();
             group.position.set(x, y, z);
             
-            // 本体：明るい発光ワイヤーフレーム
-            const geom = new THREE.TetrahedronGeometry(1.6);
+            const isCenter = (x === 0 && y === 0 && z === 0);
+            
+            // 本体：中心は白く、周囲はシアン
+            const geom = new THREE.TetrahedronGeometry(isCenter ? 1.8 : 1.5);
             const mat = new THREE.MeshBasicMaterial({ 
-                color: 0x00ffff, wireframe: true, transparent: true, opacity: 0.7
+                color: isCenter ? 0xffffff : 0x00ffff, 
+                wireframe: true, 
+                transparent: true, 
+                opacity: isCenter ? 1.0 : 0.6
             });
             const mesh = new THREE.Mesh(geom, mat);
             group.add(mesh);
 
-            // 磁極：自ら光る S(赤) / N(青)
+            // 磁極
             const poles = [[1,1,1], [-1,-1,1], [-1,1,-1], [1,-1,-1]];
             const dots = [];
             poles.forEach((p, i) => {
-                const color = i < 2 ? 0xff0000 : 0x0066ff;
+                const color = i < 2 ? 0xff0000 : 0x0088ff;
                 const dot = new THREE.Mesh(
-                    new THREE.SphereGeometry(0.4, 16, 16),
+                    new THREE.SphereGeometry(isCenter ? 0.45 : 0.35, 16, 16),
                     new THREE.MeshBasicMaterial({ color: color })
                 );
                 dot.position.set(p[0], p[1], p[2]);
@@ -72,10 +78,9 @@
                 dots.push(dot);
             });
 
-            return { group, mesh, dots, v: new THREE.Vector3(0, 0, 0), isLocked: false };
+            return { group, mesh, dots, v: new THREE.Vector3(0, 0, 0), isLocked: false, isCenter };
         }
 
-        // 3x3x3 エーテルグリッド配置
         for(let x=-1; x<=1; x++) {
             for(let y=-1; y<=1; y++) {
                 for(let z=-1; z<=1; z++) {
@@ -88,19 +93,19 @@
 
         document.getElementById('igniteBtn').onclick = () => {
             units.forEach(u => {
-                if(u.group.position.length() < 1) {
+                if(u.isCenter) {
                     u.isLocked = false;
-                    u.v.set(10, 30, 10);
-                    document.getElementById('statText').innerText = "FIELD: ACTIVE VORTEX";
+                    u.v.set(15, 35, 15);
+                    document.getElementById('statText').innerText = "PHASE: SUPERFLUID EXPANSION";
                 }
             });
         };
 
         document.getElementById('stopBtn').onclick = () => {
             units.forEach(u => {
-                if(u.group.position.length() < 1) {
+                if(u.isCenter) {
                     u.v.set(0, 0, 0); u.isLocked = true;
-                    document.getElementById('statText').innerText = "FIELD: DECAYING...";
+                    document.getElementById('statText').innerText = "PHASE: STATIC LOCK (STASIS)";
                 }
             });
         };
@@ -108,37 +113,37 @@
         function animate() {
             requestAnimationFrame(animate);
             
-            // 磁気フィールド・トルク演算
             for(let i=0; i<units.length; i++) {
                 for(let j=i+1; j<units.length; j++) {
                     const u1 = units[i]; const u2 = units[j];
                     const dist = u1.group.position.distanceTo(u2.group.position);
                     
                     if(dist < 7.5) {
-                        // トルク伝達（磁気的同期）
-                        const sync = u1.v.clone().sub(u2.v).multiplyScalar(0.05);
+                        const sync = u1.v.clone().sub(u2.v).multiplyScalar(0.06);
                         if(!u2.isLocked) u2.v.add(sync);
-                        if(!u1.isLocked) u1.v.add(sync.multiplyScalar(-1)); // subScalarの修正
-
-                        // 微細な「いなし（反発）」効果
-                        const repel = 0.005;
-                        if(!u1.isLocked) u1.v.x += (Math.random()-0.5) * repel;
-                        if(!u2.isLocked) u2.v.y += (Math.random()-0.5) * repel;
+                        if(!u1.isLocked) u1.v.add(sync.multiplyScalar(-1));
                     }
                 }
             }
 
             units.forEach(u => {
                 if(!u.isLocked) {
-                    u.group.rotation.x += u.v.x * 0.05;
-                    u.group.rotation.y += u.v.y * 0.05;
-                    u.group.rotation.z += u.v.z * 0.05;
-                    u.v.multiplyScalar(0.999); // 超流動
+                    u.group.rotation.x += u.v.x * 0.04;
+                    u.group.rotation.y += u.v.y * 0.04;
+                    u.group.rotation.z += u.v.z * 0.04;
+                    u.v.multiplyScalar(0.999);
                 }
-                // 速度に応じた発光演出
                 const s = u.v.length();
-                u.mesh.material.opacity = 0.3 + Math.min(s * 0.05, 0.7);
+                if(u.isCenter) {
+                    u.mesh.material.opacity = 0.5 + Math.min(s * 0.1, 0.5);
+                } else {
+                    u.mesh.material.opacity = 0.2 + Math.min(s * 0.05, 0.6);
+                }
             });
+
+            if(document.getElementById('statText').innerText.includes("EXPANSION")) {
+                scene.rotation.y += 0.0015;
+            }
 
             renderer.render(scene, camera);
         }
